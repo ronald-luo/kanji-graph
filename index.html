@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Kanji Graph Visualization</title>
+  <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <link rel="stylesheet" href="reset.css">
+  <link rel="stylesheet" href="styles.css">
+
+</head>
+<body>
+  <div id="graph-container"></div>
+  <script src="script.js"></script>
+  <script>
+    let kanjiData; // Load and parse the kanji.json file
+    fetch('kanji.json')
+    .then(response => response.json())
+    .then(data => {
+        // Assign the data to the kanjiData variable
+        kanjiData = data;
+
+        // Create an array of nodes
+        const nodes = Object.values(kanjiData).map(kanji => ({
+        id: kanji.index,
+        label: kanji.kanji,
+        title: kanji.meaning,
+        hidden: false,
+    }));
+
+    // Create an array of edges
+    const edges = [];
+    for (const kanjiIndex in kanjiData) {
+        const kanji = kanjiData[kanjiIndex];
+        const relatives = kanji.relatives || [];
+        for (const relative of relatives) {
+            edges.push({ from: kanji.index, to: relative });
+        }
+    }
+
+    // Create the graph data
+    const node_data = {
+        nodes: nodes,
+        edges: edges,
+    };
+
+    // Set the options for the graph
+    const options = {
+        nodes: {
+            shape: 'circle',
+            font: {
+                face: 'Arial',
+                size: 20,
+            },
+            color: '#00FFFF',
+        },
+        edges: {
+            color: '#5A5A5A',
+        },
+        layout: {
+            hierarchical: {
+                enabled: false, // Disable hierarchical layout
+            },
+            randomSeed: 2213,
+            improvedLayout: true,
+        },
+        physics: {
+            enabled: false,
+        },
+        
+    };
+
+    // Calculate the node size based on the number of edges
+    for (const node of nodes) {
+        const nodeEdges = edges.filter(edge => edge.from === node.id || edge.to === node.id);
+        node.font = { size: 20 + (nodeEdges.length * 1) }; // Adjust the font size based on the number of edges
+    }
+
+    // Create a new network visualization
+    const container = document.getElementById('graph-container');
+    const network = new vis.Network(container, node_data, options);
+
+    // Add event listener for node click
+    network.on('click', function (params) {
+    const clickedNodeId = params.nodes[0];
+    const clickedNode = nodes.find(node => node.id === clickedNodeId);
+
+    clickedNode.color = '#00ff80';
+
+    if (clickedNode) {
+    // Reset the visibility of all nodes and edges
+        for (const node of nodes) {
+         node.hidden = false;
+        }
+
+        for (const edge of edges) {
+         edge.hidden = false;
+        }
+
+        // Show the clicked node
+        clickedNode.hidden = false;
+
+        // Get directly related nodes
+        const relatedNodes = edges
+        .filter(edge => edge.from === clickedNodeId)
+        .map(edge => edge.to);
+
+        // Hide the nodes that are not directly related
+        for (const node of nodes) {
+            if (!relatedNodes.includes(node.id)) {
+                node.hidden = true;
+            }
+        }
+
+        // Hide the edges that are not directly related
+        for (const edge of edges) {
+            if (!relatedNodes.includes(edge.from) || !relatedNodes.includes(edge.to)) {
+                edge.hidden = true;
+            }
+        }
+
+        // Update the network with the modified node and edge visibility
+        network.setData({ nodes, edges });
+    }
+    });})
+    .catch(error => {
+      console.error('Error loading kanji.json:', error);
+    })
+  </script>
+</body>
+</html>
